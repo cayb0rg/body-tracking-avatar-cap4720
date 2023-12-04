@@ -62,7 +62,7 @@ As a last attempt at getting something working, I switched to WebGL. This uses m
 To test it:
 
 1. Set up a webcam.
-2. In the root folder, run `npx vite`.
+2. In the root folder, run `npm install` and `npx vite`.
 3. Go to `localhost:5173` in your browser.
 
 ## Credits
