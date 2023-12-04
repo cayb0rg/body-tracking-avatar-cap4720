@@ -5,9 +5,9 @@ The project involves creating a 3D avatar that tracks human movement in real-tim
 ## PyOpenGL Implementation
 
 ### Overview
-Most of my efforts went towards creating an avatar that follows your movement in real time using PyOpenGL and skeletal animation techniques. This attempt failed, sadly. I first tried to use a Collada (.dae) file since these files can hold joint indices and weight data; however, I struggled to render the model correctly and realized that it was because my Collada file was still using polygons even though I exported it with triangulation enabled. I tried to use other Collada files, but because each Collada is structured differently, I decided to switch to GLTF, a more universal JSON-like format.\par
+Most of my efforts went towards creating an avatar that follows your movement in real time using PyOpenGL and skeletal animation techniques. This attempt failed, sadly. I first tried to use a Collada (.dae) file since these files can hold joint indices and weight data; however, I struggled to render the model correctly and realized that it was because my Collada file was still using polygons even though I exported it with triangulation enabled. I tried to use other Collada files, but because each Collada is structured differently, I decided to switch to GLTF, a more universal JSON-like format.
 
-However, this didn't work out either. Half of the triangles were missing, which could be due to the triangles' winding order or because the GLTF is indexed (Figure \ref{static}). However, my attempt to solve the culling problem using \lstinline{glDisable(GL_CULL_FACE)} or other solutions did not work. I also tried my hand at indexing the buffer with \lstinline{GL_ELEMENT_ARRAY_BUFFER}, but this did not work either.\par
+However, this didn't work out either. Half of the triangles were missing, which could be due to the triangles' winding order or because the GLTF is indexed. However, my attempt to solve the culling problem using `glDisable(GL_CULL_FACE)` or other solutions did not work. I also tried my hand at indexing the buffer with `GL_ELEMENT_ARRAY_BUFFER`, but this did not work either.
 
 ### Imported Libraries
 - **pygame:** For window creation and event handling.
