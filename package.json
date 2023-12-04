@@ -1,0 +1,10 @@
+{
+    "dependencies": {
+        "@mediapipe/tasks-vision": "^0.10.8",
+        "mathjs": "^12.1.0",
+        "three": "^0.159.0"
+    },
+    "devDependencies": {
+        "vite": "^5.0.2"
+    }
+}

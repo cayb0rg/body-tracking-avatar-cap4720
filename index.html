@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Skeleton Collada</title>
+		<link rel="stylesheet" href="main.css">
+		<script type="text/javascript">
+			var trackedPose;
+		</script>
+	</head>
+	<body>
+		<div id="webgl"></div>
+		<div class="container">
+			<video id="video"></video>
+			<canvas id="drawingutils" width="1280px" height="720px"></canvas>
+		</div>
+		<script type="text/javascript">
+			const video = document.querySelector('#video');
+			window.navigator.mediaDevices.getUserMedia({ video: true })
+				.then(stream => {
+					video.srcObject = stream;
+					video.onloadedmetadata = (e) => {
+						video.play();
+					};
+				})
+				.catch( () => {
+					alert('You have give browser the permission to run Webcam and mic ;( ');
+				});
+
+		</script>
+		<script type="module" src="animator.js"></script>
+	</body>
+</html>
