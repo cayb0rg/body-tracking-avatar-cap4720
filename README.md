@@ -47,7 +47,7 @@ python main.py
 ```
 If your program crashes when switching to "Animate using OpenCV" or "GLTF" data, restart the program. It is a bit finnicky when switching modes.
 
-## Body tracking (Python) (`bodytracking`)
+## Body tracking (Python)
 I used TemugeB's camera calibration and 3D pose estimation code to generate keypoints for the PyOpenGL implementation, which didn't end up working, but here it is anyways.
 
 I converted the skeleton drawing code to PyOpenGL:
@@ -56,7 +56,7 @@ I converted the skeleton drawing code to PyOpenGL:
 
 This is using pre-recorded data stored in `keypoints_data/kpts_3d.dat`. To generate your own keypoints, follow the stereo camera calibration tutorial at https://github.com/TemugeB/python_stereo_camera_calibrate and the body pose tutorial at https://github.com/TemugeB/bodypose3d. Note that you must have two cameras for it to work.
 
-## Body tracking (WebGL) (Root folder)
+## Body tracking (WebGL)
 As a last attempt at getting something working, I switched to WebGL. This uses mediapipe's pose landmarker for getting the body tracking data and Three.js for rendering the model. I used the add-ons GLTFLoader for loading GLTF models and OrbitControls for moving around the scene.
 
 To test it:
