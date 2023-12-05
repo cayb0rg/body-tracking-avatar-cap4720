@@ -23,7 +23,7 @@ let torsoJoint1, torsoJoint2, torsoJoint3;
 let legJointL1, legJointL2, legJointL3, legJointL5;
 let legJointR1, legJointR2, legJointR3, legJointR5;
 
-let scene, camera, renderer, manager, loader, controls, skeleton;
+let scene, camera, renderer, manager, loader, controls, skeleton, mesh, armature
 
 let worldPosition, landmarkDict;
 
@@ -44,7 +44,7 @@ const createPoseLandmarker = async () => {
       delegate: "GPU",
     },
     runningMode: "VIDEO",
-    numPoses: 2,
+    numPoses: 4,
   });
 };
 
@@ -96,7 +96,7 @@ function init() {
   renderer = new THREE.WebGLRenderer();
   renderer.setClearColor(new THREE.Color(0xcccccc));
   renderer.setPixelRatio( window.devicePixelRatio );
-  renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
+  renderer.setSize(window.innerWidth * 0.75, window.innerHeight * 0.75);
   document.getElementById('webgl').appendChild(renderer.domElement);
 
   // We movin' in this scene
@@ -104,8 +104,8 @@ function init() {
   controls.target.set(0, 0, 0);
 
   // Look at my center of origin when I'm speaking to you
-  camera.position.set(0, 5, 10);
-  camera.lookAt(0, 5, 0);
+  camera.position.set(0, 5, 15);
+  camera.lookAt(0, 10, 0);
 
   manager = new THREE.LoadingManager();
   loader = new GLTFLoader(manager);
@@ -113,9 +113,8 @@ function init() {
   // Load them bad boy GLTFs
   loader.load("RiggedFigureInBlender.gltf",function(gltf) {
     // A new model has joined the party
-    const mesh = gltf.scene;
+    mesh = gltf.scene;
     mesh.children[0].material = new THREE.MeshLambertMaterial();
-    mesh.scale.set(10, 10, 10)
 
     scene.add(mesh);
     console.log(mesh)
@@ -124,32 +123,55 @@ function init() {
     renderer.render(scene, camera);
 
     // const armature = mesh.children[0].children[0];
-    const armature = mesh.children[0].children[0];
+    armature = mesh.children[0].children[0];
 
-    skeleton = new THREE.SkeletonHelper( armature );
-    skeleton.visible = true;
-    scene.add( skeleton );
+    // skeleton = new THREE.SkeletonHelper( armature );
+    // skeleton.visible = true;
+    // scene.add( skeleton );
+    // console.log(skeleton)
+
+
+    torsoJoint1 = armature.children[1]
+    // torsoJoint1 = armature.children[0]
+    torsoJoint2 = torsoJoint1.children[0]
+    torsoJoint3 = torsoJoint2.children[0]
+    armJointL1 = torsoJoint3.children[1]
+    armJointL2 = armJointL1.children[0]
+    armJointL3 = armJointL2.children[0]
+    armJointR1 = torsoJoint3.children[2]
+    armJointR2 = armJointR1.children[0]
+    armJointR3 = armJointR2.children[0]
+    neckJoint1 = torsoJoint3.children[0]
+    neckJoint2 = neckJoint1.children[0]
+    legJointL1 = torsoJoint1.children[1]
+    legJointL2 = legJointL1.children[0]
+    legJointL3 = legJointL2.children[0]
+    legJointL5 = legJointL3.children[0]
+    legJointR1 = torsoJoint1.children[2]
+    legJointR2 = legJointR1.children[0]
+    legJointR3 = legJointR2.children[0]
+    legJointR5 = legJointR3.children[0]
 
     // Get skinnin' data YEE HAW
-    armJointL1 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_1');
-    armJointL2 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_2');
-    armJointL3 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_3');
-    armJointR1 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_1');
-    armJointR2 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_2');
-    armJointR3 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_3');
-    neckJoint1 = skeleton.bones.find(bone => bone.name === 'neck_joint_1');
-    neckJoint2 = skeleton.bones.find(bone => bone.name === 'neck_joint_2');
-    torsoJoint1 = skeleton.bones.find(bone => bone.name === 'torso_joint_1');
-    torsoJoint2 = skeleton.bones.find(bone => bone.name === 'torso_joint_2');
-    torsoJoint3 = skeleton.bones.find(bone => bone.name === 'torso_joint_3');
-    legJointL1 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_1');
-    legJointL2 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_2');
-    legJointL3 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_3');
-    legJointL5 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_5');
-    legJointR1 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_1');
-    legJointR2 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_2');
-    legJointR3 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_3');
-    legJointR5 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_5');
+    // armJointL1 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_1');
+    // armJointL2 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_2');
+    // armJointL3 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_3');
+    // armJointR1 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_1');
+    // armJointR2 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_2');
+    // armJointR3 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_3');
+    // neckJoint1 = skeleton.bones.find(bone => bone.name === 'neck_joint_1');
+    // neckJoint2 = skeleton.bones.find(bone => bone.name === 'neck_joint_2');
+    // torsoJoint1 = skeleton.bones.find(bone => bone.name === 'torso_joint_1');
+    // torsoJoint2 = skeleton.bones.find(bone => bone.name === 'torso_joint_2');
+    // torsoJoint3 = skeleton.bones.find(bone => bone.name === 'torso_joint_3');
+    // legJointL1 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_1');
+    // legJointL2 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_2');
+    // legJointL3 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_3');
+    // legJointL5 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_5');
+    // legJointR1 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_1');
+    // legJointR2 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_2');
+    // legJointR3 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_3');
+    // legJointR5 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_5');
 
     // create array of joints to iterate over while animating
     joints = [
@@ -180,23 +202,6 @@ function init() {
     }
   });
 
-}
-
-// Given the position and rotation between two points, update the bone's quaternion
-// This will propagate to child bones
-function setQuaternions(joint, newAxis) {
-  let parent = joint.parent;
-  scene.attach(joint);
-  let currentQuat = joint.quaternion.clone();
-
-  let worldRotation = joint.quaternion.clone();
-  let refVec = new THREE.Vector3(0, 1, 0);
-  refVec.applyQuaternion(worldRotation);
-  let newQuat = new THREE.Quaternion().setFromUnitVectors(refVec, new THREE.Vector3(newAxis.x , - newAxis.y , - newAxis.z));
-  // post-multiply the previous quaternion
-  newQuat.multiply(currentQuat);
-  joint.quaternion.copy(newQuat);
-  parent.attach(joint);
 }
 
 const landmarkArray = [
@@ -310,8 +315,8 @@ function calcJoints(keypoints) {
 
   // neck
   const foreheadPoint = getMidpoint(keypoints.NOSE, keypoints.RIGHT_EYE_INNER)
-  const neckJoint1 = vectorRotation(neckpoint, foreheadPoint, offset_directions.NECK);
-  const neckJoint2 = neckJoint1
+  const neckJoint1 = vectorRotation(chestPoint, foreheadPoint, offset_directions.NECK);
+  const neckJoint2 = foreheadPoint
 
   // torso
   const torsoJoint1 = vectorRotation(hipPoint, neckpoint, offset_directions.TORSO);
@@ -322,13 +327,13 @@ function calcJoints(keypoints) {
   const legJointL1 = vectorRotation(keypoints.LEFT_HIP, keypoints.LEFT_KNEE, offset_directions.LEFT_HIP);
   const legJointL2 = vectorRotation(keypoints.LEFT_KNEE, keypoints.LEFT_ANKLE, offset_directions.LEFT_KNEE);
   const legJointL3 = vectorRotation(keypoints.LEFT_ANKLE, keypoints.LEFT_HEEL, offset_directions.LEFT_ANKLE);
-  const legJointL5 = vectorRotation(keypoints.LEFT_HEEL, keypoints.LEFT_FOOT_INDEX, offset_directions.LEFT_ANKLE);
+  const legJointL5 = vectorRotation(keypoints.LEFT_FOOT_INDEX, keypoints.LEFT_HEEL, offset_directions.LEFT_ANKLE);
 
   // right leg
   const legJointR1 = vectorRotation(keypoints.RIGHT_HIP, keypoints.RIGHT_KNEE, offset_directions.RIGHT_HIP);
   const legJointR2 = vectorRotation(keypoints.RIGHT_KNEE, keypoints.RIGHT_ANKLE, offset_directions.RIGHT_KNEE);
   const legJointR3 = vectorRotation(keypoints.RIGHT_ANKLE, keypoints.RIGHT_HEEL, offset_directions.RIGHT_ANKLE);
-  const legJointR5 = vectorRotation(keypoints.RIGHT_HEEL, keypoints.RIGHT_FOOT_INDEX, offset_directions.RIGHT_ANKLE);
+  const legJointR5 = vectorRotation(keypoints.RIGHT_FOOT_INDEX, keypoints.RIGHT_HEEL, offset_directions.RIGHT_ANKLE);
 
   // Package joint data to be sent to the renderer
   const trackedPose = {
@@ -461,6 +466,17 @@ async function predictWebcam() {
 // Animmamtttateatmatametametmamtmeta
 function animate() {
 
+  if (mesh && worldPosition) {
+    let parent = mesh.parent
+    mesh.position.x = ((worldPosition.x + 0.4) * 2.0)
+    mesh.position.y = ((worldPosition.y + 0.4) * 2.0)
+    mesh.position.z = ((worldPosition.z + 0.4) * 2.0)
+    mesh.scale.x = 12.0
+    mesh.scale.y = 12.0
+    mesh.scale.z = 12.0
+    mesh.updateWorldMatrix(true, true)
+    scene.attach(mesh)
+  }
   if (trackedPose) {
     for (let joint of joints) {
       joint.position.copy(initialStates[joint.id][0]);
@@ -473,23 +489,34 @@ function animate() {
       if (newAxis == null) {
         continue;
       }
-      setQuaternions(joint, newAxis)
+      let parent = joint.parent;
+      scene.attach(joint);
+      let currentQuat = joint.quaternion.clone();
+
+      let worldRotation = joint.quaternion.clone();
+      let refVec = new THREE.Vector3(0, 1, 0);
+      refVec.applyQuaternion(worldRotation);
+      let newQuat = new THREE.Quaternion().setFromUnitVectors(refVec, new THREE.Vector3(newAxis.x , - newAxis.y , - newAxis.z));
+      // post-multiply the previous quaternion
+      newQuat.multiply(currentQuat);
+      joint.quaternion.copy(newQuat);
+      parent.attach(joint);
     }
     if (torsoJoint1)
     {
-      torsoJoint1.rotation.x -= 1
       if (worldPosition) {
+        let parent = torsoJoint1.parent;
         scene.attach(torsoJoint1);
+        console.log(worldPosition)
         const newCenter = new THREE.Vector3(worldPosition[0], worldPosition[1], worldPosition[2])
-        torsoJoint1.position.set(newCenter.x * 2, newCenter.y * 2, newCenter.z * 2)
         torsoJoint1.updateMatrixWorld();
+        parent.attach(torsoJoint1); // reattach to original parent
 
         for (let joint of joints) {
           let parent = joint.parent;
-          scene.attach(joint);
-          joint.position.add(new THREE.Vector3(worldPosition[0], worldPosition[1], worldPosition[2]));
-          joint.updateMatrixWorld();
-          parent.attach(joint);
+          scene.attach(joint); // detach from parent and add to scene
+          joint.updateWorldMatrix();
+          parent.attach(joint); // reattach to original parent
         }
       }
     }
