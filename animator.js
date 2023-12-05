@@ -17,8 +17,6 @@ let webcamRunning = false;
 const videoHeight = "360px";
 const videoWidth = "480px";
 
-let trackingLog = [];
-
 let armJointL1, armJointL2, armJointL3, armJointR1, armJointR2, armJointR3;
 let neckJoint1, neckJoint2;
 let torsoJoint1, torsoJoint2, torsoJoint3;
@@ -27,215 +25,13 @@ let legJointR1, legJointR2, legJointR3, legJointR5;
 
 let scene, camera, renderer, manager, loader, controls, skeleton;
 
+let worldPosition, landmarkDict;
+
 let initialStates = {}
 
+let axisAngles = {}
+
 const hasGetUserMedia = () => !!navigator.mediaDevices?.getUserMedia;
-
-function vectorMagnitude(v) {
-  return Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-}
-
-function calcVector(src, end) {
-  return [end[0] - src[0], end[1] - src[1], end[2] - src[2]];
-}
-
-function normalizeVector(v) {
-  let m = vectorMagnitude(v);
-  return [v[0] / m, v[1] / m, v[2] / m];
-}
-
-function landmarkToPoint(landmark) {
-  return [landmark.x, landmark.y, landmark.z];
-}
-
-function averagePoints(p1, p2) {
-  return [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2, (p1[2] + p2[2]) / 2];
-}
-
-// rotation from an up vector to vector made from given points
-function absoluteRotation(src, end) {
-  let vec = calcVector(src, end);
-  return normalizeVector(vec);
-}
-
-// maps the model's joint names to tracking data names
-const jointNamesToPoseProperties = {
-  'torso_joint_1': 'torsoJoint1',
-  'torso_joint_2': 'torsoJoint2',
-  'neck_joint_1': 'neckJoint1',
-  'neck_joint_2': 'neckJoint2',
-  'arm_joint_L_1': 'armJointL1',
-  'arm_joint_L_2': 'armJointL2',
-  'arm_joint_L_3': 'armJointL3',
-  'arm_joint_R_1': 'armJointR1',
-  'arm_joint_R_2': 'armJointR2',
-  'arm_joint_R_3': 'armJointR3',
-  'leg_joint_L_1': 'legJointL1',
-  'leg_joint_L_2': 'legJointL2',
-  'leg_joint_L_3': 'legJointL3',
-  'leg_joint_R_1': 'legJointR1',
-  'leg_joint_R_2': 'legJointR2',
-  'leg_joint_R_3': 'legJointR3'
-};
-
-// calculate the angles between each pose landmark
-function onResults(results) {
-  if (results && results.worldLandmarks && results.worldLandmarks[0]) {
-
-    for (let i = 0; i < results.worldLandmarks; i++) {
-      if (!results.worldLandmarks[0][i]) {
-        return;
-      }
-    }
-
-    let armJointR3 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][16]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][14]), landmarkToPoint(results.worldLandmarks[0][16])),
-    };
-    let armJointL3 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][15]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][13]), landmarkToPoint(results.worldLandmarks[0][15])),
-    };
-    let armJointL2 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][13]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][13]), landmarkToPoint(results.worldLandmarks[0][15])),
-    }
-    let armJointR2 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][14]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][14]), landmarkToPoint(results.worldLandmarks[0][16])),
-    }
-    let armJointL1 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][11]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][11]), landmarkToPoint(results.worldLandmarks[0][13])),
-    }
-    let armJointR1 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][12]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][12]), landmarkToPoint(results.worldLandmarks[0][14])),
-    }
-    let legJointR3 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][28]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][26]), landmarkToPoint(results.worldLandmarks[0][28])),
-    };
-    let legJointL3 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][27]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][25]), landmarkToPoint(results.worldLandmarks[0][27])),
-    };
-    let legJointR2 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][26]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][26]), landmarkToPoint(results.worldLandmarks[0][28])),
-    };
-    let legJointL2 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][25]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][25]), landmarkToPoint(results.worldLandmarks[0][27])),
-    };
-    let legJointR1 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][24]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][24]), landmarkToPoint(results.worldLandmarks[0][26])),
-    };
-    let legJointL1 = {
-      'pos': landmarkToPoint(results.worldLandmarks[0][23]),
-      'rot': absoluteRotation(landmarkToPoint(results.worldLandmarks[0][23]), landmarkToPoint(results.worldLandmarks[0][25])),
-    };
-    let neckPoint = averagePoints(landmarkToPoint(results.worldLandmarks[0][11]), landmarkToPoint(results.worldLandmarks[0][12]));
-    let hipPoint = averagePoints(landmarkToPoint(results.worldLandmarks[0][23]), landmarkToPoint(results.worldLandmarks[0][24]));
-    let chestPoint = averagePoints(neckPoint, hipPoint);
-    let chest2Point = averagePoints(neckPoint, chestPoint);
-    let nosePoint = averagePoints(landmarkToPoint(results.worldLandmarks[0][1]), landmarkToPoint(results.worldLandmarks[0][4]));
-    let headPoint = averagePoints(neckPoint, nosePoint);
-
-    let torsoJoint1 = {
-      'pos': hipPoint,
-      'rot': absoluteRotation(hipPoint, neckPoint),
-    };
-    let torsoJoint2 = {
-      'pos': chestPoint,
-      'rot': torsoJoint1['rot'],
-    }
-    let torsoJoint3 = {
-      'pos': neckPoint,
-      'rot': torsoJoint1['rot'],
-    }
-    let neckJoint1 = {
-      'pos': neckPoint,
-      'rot': absoluteRotation(neckPoint, nosePoint),
-    };
-    let neckJoint2 = {
-      'pos': nosePoint,
-      'rot': neckJoint1['rot']
-    };
-    let legJointR5 = legJointR3
-    let legJointL5 = legJointL3
-
-    let newPose = {
-      armJointL1,
-      armJointL2,
-      armJointL3,
-      armJointR1,
-      armJointR2,
-      armJointR3,
-      neckJoint1,
-      neckJoint2,
-      torsoJoint1,
-      torsoJoint2,
-      torsoJoint3,
-      legJointL1,
-      legJointL2,
-      legJointL3,
-      legJointL5,
-      legJointR1,
-      legJointR2,
-      legJointR3,
-      legJointR5
-    }
-
-    trackingLog.push(newPose);
-    if (trackingLog.length > 4) {
-      trackingLog.splice(0, 1);
-    }
-
-    // set initial values for average sum
-    let trackedPoseAvg = {}
-    for (let key of Object.keys(trackingLog[0])) {
-      trackedPoseAvg[key] = {'pos': [...trackingLog[0][key]['pos']], 'rot': [...trackingLog[0][key]['rot']]};
-    }
-
-    // sum up values
-    for (let i = 1; i < trackingLog.length; i++) {
-      for (let key of Object.keys(trackingLog[i])) {
-        for (let j = 0; j < trackingLog[i][key]['pos'].length; j++) {
-          trackedPoseAvg[key]['pos'][j] += trackingLog[i][key]['pos'][j];
-        }
-        for (let j = 0; j < trackingLog[i][key]['rot'].length; j++) {
-          trackedPoseAvg[key]['rot'][j] += trackingLog[i][key]['rot'][j];
-        }
-      }
-    }
-
-    // divide to get average
-    for (let key of Object.keys(trackedPoseAvg)) {
-      for (let j = 0; j < trackedPoseAvg[key]['pos'].length; j++) {
-        trackedPoseAvg[key]['pos'][j] /= trackingLog.length;
-      }
-      for (let j = 0; j < trackedPoseAvg[key]['rot'].length; j++) {
-        trackedPoseAvg[key]['rot'][j] /= trackingLog.length;
-      }
-    }
-
-    trackedPoseAvg['feetMidpoint'] = {
-      'pos': averagePoints(trackedPoseAvg['legJointL3'].pos, trackedPoseAvg['legJointR3'].pos)
-    }
-    trackedPoseAvg['feetMidpoint'].pos[1] = Math.max(trackedPoseAvg['legJointL3'].pos[1], trackedPoseAvg['legJointR3'].pos[1]);
-
-    // set average as tracked pose
-    trackedPose = trackedPoseAvg;
-  } else {
-    return
-  }
-}
-const vision = await FilesetResolver.forVisionTasks(
-  // path/to/wasm/root
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-);
 
 const createPoseLandmarker = async () => {
   const vision = await FilesetResolver.forVisionTasks(
@@ -292,25 +88,31 @@ function init() {
   var axesHelper = new THREE.AxesHelper( 10 );
   scene.add( axesHelper );
 
-  scene.add(new THREE.AmbientLight(0xffffff,1));
+  // Let there be light
+  const light = new THREE.AmbientLight( 0xFFFFFF ); // white light
+  scene.add( light );
 
-  // render the viewport
+  // Tip toe through the window with meeeeeeee
   renderer = new THREE.WebGLRenderer();
+  renderer.setClearColor(new THREE.Color(0xcccccc));
+  renderer.setPixelRatio( window.devicePixelRatio );
   renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
   document.getElementById('webgl').appendChild(renderer.domElement);
 
-  // set up orbit controls
+  // We movin' in this scene
   controls = new OrbitControls( camera, renderer.domElement );
   controls.target.set(0, 0, 0);
 
-  // position and orient camera
+  // Look at my center of origin when I'm speaking to you
   camera.position.set(0, 5, 10);
   camera.lookAt(0, 5, 0);
 
   manager = new THREE.LoadingManager();
   loader = new GLTFLoader(manager);
 
+  // Load them bad boy GLTFs
   loader.load("RiggedFigureInBlender.gltf",function(gltf) {
+    // A new model has joined the party
     const mesh = gltf.scene;
     mesh.children[0].material = new THREE.MeshLambertMaterial();
     mesh.scale.set(10, 10, 10)
@@ -328,46 +130,26 @@ function init() {
     skeleton.visible = true;
     scene.add( skeleton );
 
-    // get joint's from scene tree
-    torsoJoint1 = armature.children[1]
-    // torsoJoint1 = armature.children[0]
-    torsoJoint2 = torsoJoint1.children[0]
-    torsoJoint3 = torsoJoint2.children[0]
-    armJointL1 = torsoJoint3.children[1]
-    armJointL2 = armJointL1.children[0]
-    armJointL3 = armJointL2.children[0]
-    armJointR1 = torsoJoint3.children[2]
-    armJointR2 = armJointR1.children[0]
-    armJointR3 = armJointR2.children[0]
-    neckJoint1 = torsoJoint3.children[0]
-    neckJoint2 = neckJoint1.children[0]
-    legJointL1 = torsoJoint1.children[1]
-    legJointL2 = legJointL1.children[0]
-    legJointL3 = legJointL2.children[0]
-    legJointL5 = legJointL3.children[0]
-    legJointR1 = torsoJoint1.children[2]
-    legJointR2 = legJointR1.children[0]
-    legJointR3 = legJointR2.children[0]
-    legJointR5 = legJointR3.children[0]
-    // armJointL1 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_1');
-    // armJointL2 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_2');
-    // armJointL3 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_3');
-    // armJointR1 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_1');
-    // armJointR2 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_2');
-    // armJointR3 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_3');
-    // neckJoint1 = skeleton.bones.find(bone => bone.name === 'neck_joint_1');
-    // neckJoint2 = skeleton.bones.find(bone => bone.name === 'neck_joint_2');
-    // torsoJoint1 = skeleton.bones.find(bone => bone.name === 'torso_joint_1');
-    // torsoJoint2 = skeleton.bones.find(bone => bone.name === 'torso_joint_2');
-    // torsoJoint3 = skeleton.bones.find(bone => bone.name === 'torso_joint_3');
-    // legJointL1 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_1');
-    // legJointL2 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_2');
-    // legJointL3 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_3');
-    // legJointL5 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_5');
-    // legJointR1 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_1');
-    // legJointR2 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_2');
-    // legJointR3 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_3');
-    // legJointR5 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_5');
+    // Get skinnin' data YEE HAW
+    armJointL1 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_1');
+    armJointL2 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_2');
+    armJointL3 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_3');
+    armJointR1 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_1');
+    armJointR2 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_2');
+    armJointR3 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_3');
+    neckJoint1 = skeleton.bones.find(bone => bone.name === 'neck_joint_1');
+    neckJoint2 = skeleton.bones.find(bone => bone.name === 'neck_joint_2');
+    torsoJoint1 = skeleton.bones.find(bone => bone.name === 'torso_joint_1');
+    torsoJoint2 = skeleton.bones.find(bone => bone.name === 'torso_joint_2');
+    torsoJoint3 = skeleton.bones.find(bone => bone.name === 'torso_joint_3');
+    legJointL1 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_1');
+    legJointL2 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_2');
+    legJointL3 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_3');
+    legJointL5 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_5');
+    legJointR1 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_1');
+    legJointR2 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_2');
+    legJointR3 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_3');
+    legJointR5 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_5');
 
     // create array of joints to iterate over while animating
     joints = [
@@ -400,27 +182,237 @@ function init() {
 
 }
 
+// Given the position and rotation between two points, update the bone's quaternion
+// This will propagate to child bones
+function setQuaternions(joint, newAxis) {
+  let parent = joint.parent;
+  scene.attach(joint);
+  let currentQuat = joint.quaternion.clone();
 
-function getJointVec(joint) {
   let worldRotation = joint.quaternion.clone();
   let refVec = new THREE.Vector3(0, 1, 0);
   refVec.applyQuaternion(worldRotation);
-  return refVec;
-}
-
-// Given the position and rotation between two points, update the bone's quaternion
-// This will propagate to child bones
-function setWorldJointState(joint, position, rotVec) {
-  let parent = joint.parent;
-  scene.attach(joint);
-  let sourceQuat = joint.quaternion.clone();
-  let updateQuat = new THREE.Quaternion().setFromUnitVectors(getJointVec(joint), new THREE.Vector3(rotVec[0], -rotVec[1], -rotVec[2]));
+  let newQuat = new THREE.Quaternion().setFromUnitVectors(refVec, new THREE.Vector3(newAxis.x , - newAxis.y , - newAxis.z));
   // post-multiply the previous quaternion
-  updateQuat.multiply(sourceQuat);
-  joint.quaternion.copy(updateQuat);
-  // joint.position.set(position[0] * 5, -position[1] * 5, -position[2] * 5);
+  newQuat.multiply(currentQuat);
+  joint.quaternion.copy(newQuat);
   parent.attach(joint);
 }
+
+const landmarkArray = [
+  'NOSE',
+  'LEFT_EYE_INNER',
+  'LEFT_EYE',
+  'LEFT_EYE_OUTER',
+  'RIGHT_EYE_INNER',
+  'RIGHT_EYE',
+  'RIGHT_EYE_OUTER',
+  'LEFT_EAR',
+  'RIGHT_EAR',
+  'MOUTH_LEFT',
+  'MOUTH_RIGHT',
+  'LEFT_SHOULDER',
+  'RIGHT_SHOULDER',
+  'LEFT_ELBOW',
+  'RIGHT_ELBOW',
+  'LEFT_WRIST',
+  'RIGHT_WRIST',
+  'LEFT_PINKY',
+  'RIGHT_PINKY',
+  'LEFT_INDEX',
+  'RIGHT_INDEX',
+  'LEFT_THUMB',
+  'RIGHT_THUMB',
+  'LEFT_HIP',
+  'RIGHT_HIP',
+  'LEFT_KNEE',
+  'RIGHT_KNEE',
+  'LEFT_ANKLE',
+  'RIGHT_ANKLE',
+  'LEFT_HEEL',
+  'RIGHT_HEEL',
+  'LEFT_FOOT_INDEX',
+  'RIGHT_FOOT_INDEX'
+];
+
+function subtractVectors(vec1, vec2) {
+  return {
+      x: vec1.x - vec2.x,
+      y: vec1.y - vec2.y,
+      z: vec1.z - vec2.z,
+  };
+}
+
+const offset_directions = {
+  'LEFT_HIP': new THREE.Vector3(0, -1, 0),
+  'LEFT_KNEE': new THREE.Vector3(-1, 0, 0),
+  'LEFT_ANKLE': new THREE.Vector3(-1, 0, 0),
+
+  'RIGHT_HIP': new THREE.Vector3(0, -1, 0),
+  'RIGHT_KNEE': new THREE.Vector3(1, 0, 0),
+  'RIGHT_ANKLE': new THREE.Vector3(1, 0, 0),
+
+  'NECK': new THREE.Vector3(0, 1, 0),
+
+  'LEFT_SHOULDER': new THREE.Vector3(0, -1, 0),
+  'LEFT_ELBOW': new THREE.Vector3(0, -1, 0),
+  'LEFT_WRIST': new THREE.Vector3(0, -1, 0),
+
+  'RIGHT_SHOULDER': new THREE.Vector3(0, 1, 0),
+  'RIGHT_ELBOW': new THREE.Vector3(0, 1, 0),
+  'RIGHT_WRIST': new THREE.Vector3(0, 1, 0),
+
+  'TORSO': new THREE.Vector3(1, 0, 0),
+  'TORSO1': new THREE.Vector3(0, -1, 0),
+  'TORSO3': new THREE.Vector3(0, -1, 0),
+};
+function vectorLength(vec) {
+  return Math.sqrt(vec.x ** 2 + vec.y ** 2 + vec.z ** 2);
+}
+
+function normalizeVector2(vec) {
+    const length = vectorLength(vec);
+    return {
+        x: vec.x / length,
+        y: vec.y / length,
+        z: vec.z / length,
+    };
+}
+function getMidpoint(point1, point2) {
+  return {
+    x: (point1.x + point2.x) / 2,
+    y: (point1.y + point2.y) / 2,
+    z: (point1.z + point2.z) / 2,
+  };
+}
+
+function vectorRotation(vector1, vector2, offsetDirection) {
+  const difference = subtractVectors(vector2, vector1);
+  const direction = normalizeVector2(difference);
+  return direction;
+}
+
+function calcJoints(keypoints) {
+  let hipPoint = getMidpoint(keypoints.LEFT_HIP, keypoints.RIGHT_HIP)
+  worldPosition = hipPoint;
+  let neckpoint = getMidpoint(keypoints.LEFT_SHOULDER, keypoints.RIGHT_SHOULDER)
+  const chestPoint = getMidpoint(hipPoint, neckpoint)
+
+  // left arm
+  const armJointL1 = vectorRotation(keypoints.LEFT_SHOULDER, keypoints.LEFT_ELBOW, offset_directions.LEFT_SHOULDER);
+  const armJointL2 = vectorRotation(keypoints.LEFT_ELBOW, keypoints.LEFT_WRIST, offset_directions.LEFT_ELBOW);
+  const armJointL3 = vectorRotation(keypoints.LEFT_WRIST, keypoints.LEFT_PINKY, offset_directions.LEFT_WRIST);
+
+  // right arm
+  const armJointR1 = vectorRotation(keypoints.RIGHT_SHOULDER, keypoints.RIGHT_ELBOW, offset_directions.RIGHT_SHOULDER);
+  const armJointR2 = vectorRotation(keypoints.RIGHT_ELBOW, keypoints.RIGHT_WRIST, offset_directions.RIGHT_ELBOW);
+  const armJointR3 = vectorRotation(keypoints.RIGHT_WRIST, keypoints.RIGHT_PINKY, offset_directions.RIGHT_WRIST);
+
+  // neck
+  const foreheadPoint = getMidpoint(keypoints.NOSE, keypoints.RIGHT_EYE_INNER)
+  const neckJoint1 = vectorRotation(neckpoint, foreheadPoint, offset_directions.NECK);
+  const neckJoint2 = neckJoint1
+
+  // torso
+  const torsoJoint1 = vectorRotation(hipPoint, neckpoint, offset_directions.TORSO);
+  const torsoJoint2 = torsoJoint1
+  const torsoJoint3 = torsoJoint1
+
+  // left leg
+  const legJointL1 = vectorRotation(keypoints.LEFT_HIP, keypoints.LEFT_KNEE, offset_directions.LEFT_HIP);
+  const legJointL2 = vectorRotation(keypoints.LEFT_KNEE, keypoints.LEFT_ANKLE, offset_directions.LEFT_KNEE);
+  const legJointL3 = vectorRotation(keypoints.LEFT_ANKLE, keypoints.LEFT_HEEL, offset_directions.LEFT_ANKLE);
+  const legJointL5 = vectorRotation(keypoints.LEFT_HEEL, keypoints.LEFT_FOOT_INDEX, offset_directions.LEFT_ANKLE);
+
+  // right leg
+  const legJointR1 = vectorRotation(keypoints.RIGHT_HIP, keypoints.RIGHT_KNEE, offset_directions.RIGHT_HIP);
+  const legJointR2 = vectorRotation(keypoints.RIGHT_KNEE, keypoints.RIGHT_ANKLE, offset_directions.RIGHT_KNEE);
+  const legJointR3 = vectorRotation(keypoints.RIGHT_ANKLE, keypoints.RIGHT_HEEL, offset_directions.RIGHT_ANKLE);
+  const legJointR5 = vectorRotation(keypoints.RIGHT_HEEL, keypoints.RIGHT_FOOT_INDEX, offset_directions.RIGHT_ANKLE);
+
+  // Package joint data to be sent to the renderer
+  const trackedPose = {
+    arm_joint_L_1: armJointL1,
+    arm_joint_L_2: armJointL2,
+    arm_joint_L_3: armJointL3,
+    arm_joint_R_1: armJointR1,
+    arm_joint_R_2: armJointR2,
+    arm_joint_R_3: armJointR3,
+    neck_joint_1: neckJoint1,
+    neck_joint_2: neckJoint2,
+    torso_joint_1: torsoJoint1,
+    torso_joint_2: torsoJoint2,
+    torso_joint_3: torsoJoint3,
+    leg_joint_L_1: legJointL1,
+    leg_joint_L_2: legJointL2,
+    leg_joint_L_3: legJointL3,
+    leg_joint_R_1: legJointR1,
+    leg_joint_R_2: legJointR2,
+    leg_joint_R_3: legJointR3,
+    leg_joint_L_5: legJointL5,
+    leg_joint_R_5: legJointR5,
+  };
+
+  return trackedPose;
+}
+
+function getKeyPointAnimationMatrices(keypoints) {
+  landmarkDict = {}
+  if (keypoints && keypoints.worldLandmarks && keypoints.worldLandmarks[0]) {
+    landmarkArray.forEach((landmark, index) => {
+      landmarkDict[landmark] = keypoints.worldLandmarks[0][index]
+    });
+    // Get direction vectors for bones
+    axisAngles = calcJoints(landmarkDict);
+  }
+}
+
+let log = []
+let logCounter = 0
+
+function getAverages(log) {
+  let numLogs = log.length
+  let landmarks = Array(33).fill().map(() => ({ x: 0, y: 0, z: 0 }));
+  let worldLandmarks = Array(33).fill().map(() => ({ x: 0, y: 0, z: 0 }));
+  for (let i = 0; i < log.length; i++) {
+    if (!log[i].landmarks[0] || log[i].landmarks[0].length < 33) {
+      numLogs--;
+      continue;
+    }
+    for (let j = 0; j < log[i].landmarks[0].length; j++) {
+      let jointData = log[i].landmarks[0][j]
+      landmarks[j].x += jointData.x
+      landmarks[j].y += jointData.y
+      landmarks[j].z += jointData.z
+    }
+    for (let j = 0; j < log[i].worldLandmarks[0].length; j++) {
+      let jointData = log[i].worldLandmarks[0][j]
+      worldLandmarks[j].x += jointData.x
+      worldLandmarks[j].y += jointData.y
+      worldLandmarks[j].z += jointData.z
+    }
+  }
+  for (let j = 0; j < landmarks.length; j++) {
+    landmarks[j].x /= numLogs
+    landmarks[j].y /= numLogs
+    landmarks[j].z /= numLogs
+  }
+  for (let j = 0; j < worldLandmarks.length; j++) {
+    worldLandmarks[j].x /= numLogs
+    worldLandmarks[j].y /= numLogs
+    worldLandmarks[j].z /= numLogs
+  }
+  return {
+    landmarks: {
+      0: landmarks
+    },
+    worldLandmarks: {
+      0: worldLandmarks
+    }
+  }
+}
+
+let currentAverage = null
 
 // Get pose landmarks from webcam
 async function predictWebcam() {
@@ -447,7 +439,15 @@ async function predictWebcam() {
         });
         drawingUtils.drawConnectors(landmark, PoseLandmarker.POSE_CONNECTIONS);
       }
-      onResults(result)
+      // SMOOTH MCGROOVE
+      log[logCounter] = result
+      if (!currentAverage) currentAverage = result
+      if (logCounter == 10) {
+        logCounter = 0
+      }
+      currentAverage = getAverages(log)
+      getKeyPointAnimationMatrices(currentAverage)
+      logCounter++;
       canvasCtx.restore();
     });
   }
@@ -458,41 +458,39 @@ async function predictWebcam() {
   }
 }
 
-// animate
+// Animmamtttateatmatametametmamtmeta
 function animate() {
 
   if (trackedPose) {
-    let refPoint = trackedPose.feetMidpoint;
-
-    // reset joint states
     for (let joint of joints) {
       joint.position.copy(initialStates[joint.id][0]);
       joint.quaternion.copy(initialStates[joint.id][1]);
       joint.scale.copy(initialStates[joint.id][2]);
-    }
 
-    for (let joint of joints) {
       const jointName = joint.name;
-      const poseLandmark = trackedPose[jointNamesToPoseProperties[jointName]];
-      if (poseLandmark == null) {
+
+      const newAxis = axisAngles[jointName];
+      if (newAxis == null) {
         continue;
       }
-
-      let vec = poseLandmark.rot;
-      let pos = [...poseLandmark.pos];
-
-      pos[0] -= refPoint.pos[0];
-      pos[1] -= refPoint.pos[1];
-      pos[2] -= refPoint.pos[2];
-
-      setWorldJointState(joint, pos, vec);
+      setQuaternions(joint, newAxis)
     }
     if (torsoJoint1)
     {
-      torsoJoint1.rotation.x -= 1;
-      if (trackedPose && trackedPose.torsoJoint1) {
-        const newCenter = new THREE.Vector3(trackedPose.torsoJoint1.pos[0], trackedPose.torsoJoint1.pos[1], trackedPose.torsoJoint1.pos[2])
-        torsoJoint1.position.set(newCenter.x / 2, newCenter.y / 2, newCenter.z / 2)
+      torsoJoint1.rotation.x -= 1
+      if (worldPosition) {
+        scene.attach(torsoJoint1);
+        const newCenter = new THREE.Vector3(worldPosition[0], worldPosition[1], worldPosition[2])
+        torsoJoint1.position.set(newCenter.x * 2, newCenter.y * 2, newCenter.z * 2)
+        torsoJoint1.updateMatrixWorld();
+
+        for (let joint of joints) {
+          let parent = joint.parent;
+          scene.attach(joint);
+          joint.position.add(new THREE.Vector3(worldPosition[0], worldPosition[1], worldPosition[2]));
+          joint.updateMatrixWorld();
+          parent.attach(joint);
+        }
       }
     }
   }
