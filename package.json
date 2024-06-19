@@ -1,4 +1,9 @@
 {
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "serve": "vite preview"
+    },
     "dependencies": {
         "@mediapipe/tasks-vision": "^0.10.8",
         "mathjs": "^12.1.0",
