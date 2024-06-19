@@ -33,7 +33,7 @@ jobs:
       - name: create env file
         run: |
           touch .env
-          echo BASE_PATH=/body-tracking-avatar-cap4720/ >> .env
+          echo VITE_BASE_PATH=/body-tracking-avatar-cap4720/ >> .env
     
       - name: Setup Node
         uses: actions/setup-node@v4
