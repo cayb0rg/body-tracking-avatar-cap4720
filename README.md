@@ -2,6 +2,8 @@
 
 The project involves creating a 3D avatar that tracks human movement in real-time using a webcam. The implementation is done using various technologies and approaches.
 
+Video Demo: https://youtu.be/IUkTBV7e9I4
+
 ## PyOpenGL Implementation
 
 ### Overview
