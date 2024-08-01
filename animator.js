@@ -2,14 +2,14 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DrawingUtils, FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
+import getDirectionVectors from './getDirectionVectors.js';
 
+// Container for displaying webcam
 const video = document.getElementById('video')
+// Canvas for drawing poselandmarker data
 const canvasElement = document.getElementById('drawingutils');
 const canvasCtx = canvasElement.getContext('2d');
 const drawingUtils = new DrawingUtils(canvasCtx);
-
-let trackedPose = {}
-let joints = []
 
 let poseLandmarker;
 let runningMode = "VIDEO";
@@ -17,363 +17,46 @@ let webcamRunning = false;
 const videoHeight = "360px";
 const videoWidth = "480px";
 
-let armJointL1, armJointL2, armJointL3, armJointR1, armJointR2, armJointR3;
-let neckJoint1, neckJoint2;
-let torsoJoint1, torsoJoint2, torsoJoint3;
-let legJointL1, legJointL2, legJointL3, legJointL5;
-let legJointR1, legJointR2, legJointR3, legJointR5;
+let joints = [] // array of joints in model to animate
 
-let scene, camera, renderer, manager, loader, controls, skeleton, mesh, armature
+// Global variables for Three.js
+let scene, camera, renderer, mesh
 
-let worldPosition, landmarkDict;
-
+// Initial positions, orientations, and scales of each joint
 let initialStates = {}
 
-let axisAngles = {}
+// Direction vectors for each joint, calculated from poselandmarker data
+let directionVectors = {}
 
 const hasGetUserMedia = () => !!navigator.mediaDevices?.getUserMedia;
 
+/**
+ * Create a PoseLandmarker instance configured to decode frames from a livestream of webcam video
+ */
 const createPoseLandmarker = async () => {
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
   );
   poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
     baseOptions: {
-      modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`,
-      // modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task`,
+      modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`, // lite model
+      // modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task`, // heavy model
       delegate: "GPU",
     },
     runningMode: "VIDEO",
-    numPoses: 4,
+    numPoses: 1, // maximum number of poses to detect
   });
 };
 
 let lastVideoTime = -1;
 
-// load rayman
-
-function init() {
-
-  canvasElement.style.height = videoHeight;
-  video.style.height = videoHeight;
-  canvasElement.style.width = videoWidth;
-  video.style.width = videoWidth;
-
-
-  if (hasGetUserMedia()) {
-    if (webcamRunning === true) {
-      webcamRunning = false;
-    } else {
-      webcamRunning = true;
-    }
-
-    // getUsermedia parameters.
-    const constraints = {
-      video: true
-    };
-
-    // Activate the webcam stream.
-    navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
-      video.srcObject = stream;
-      video.addEventListener("loadeddata", predictWebcam);
-    });
-  }
-
-  createPoseLandmarker();
-
-  // initlize scene and camera
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-  var axesHelper = new THREE.AxesHelper( 10 );
-  scene.add( axesHelper );
-
-  // Let there be light
-  const light = new THREE.AmbientLight( 0xFFFFFF ); // white light
-  scene.add( light );
-
-  // Tip toe through the window with meeeeeeee
-  renderer = new THREE.WebGLRenderer();
-  renderer.setClearColor(new THREE.Color(0xcccccc));
-  renderer.setPixelRatio( window.devicePixelRatio );
-  renderer.setSize(window.innerWidth * 0.75, window.innerHeight * 0.75);
-  document.getElementById('webgl').appendChild(renderer.domElement);
-
-  // We movin' in this scene
-  controls = new OrbitControls( camera, renderer.domElement );
-  controls.target.set(0, 0, 0);
-
-  // Look at my center of origin when I'm speaking to you
-  camera.position.set(0, 5, 15);
-  camera.lookAt(0, 10, 0);
-
-  manager = new THREE.LoadingManager();
-  loader = new GLTFLoader(manager);
-
-  // Load them bad boy GLTFs
-  loader.load("RiggedFigureInBlender.gltf",function(gltf) {
-    // A new model has joined the party
-    mesh = gltf.scene;
-    mesh.children[0].material = new THREE.MeshLambertMaterial();
-
-    scene.add(mesh);
-    console.log(mesh)
-
-    // render the model
-    renderer.render(scene, camera);
-
-    // const armature = mesh.children[0].children[0];
-    armature = mesh.children[0].children[0];
-
-    // skeleton = new THREE.SkeletonHelper( armature );
-    // skeleton.visible = true;
-    // scene.add( skeleton );
-    // console.log(skeleton)
-
-
-    torsoJoint1 = armature.children[1]
-    // torsoJoint1 = armature.children[0]
-    torsoJoint2 = torsoJoint1.children[0]
-    torsoJoint3 = torsoJoint2.children[0]
-    armJointL1 = torsoJoint3.children[1]
-    armJointL2 = armJointL1.children[0]
-    armJointL3 = armJointL2.children[0]
-    armJointR1 = torsoJoint3.children[2]
-    armJointR2 = armJointR1.children[0]
-    armJointR3 = armJointR2.children[0]
-    neckJoint1 = torsoJoint3.children[0]
-    neckJoint2 = neckJoint1.children[0]
-    legJointL1 = torsoJoint1.children[1]
-    legJointL2 = legJointL1.children[0]
-    legJointL3 = legJointL2.children[0]
-    legJointL5 = legJointL3.children[0]
-    legJointR1 = torsoJoint1.children[2]
-    legJointR2 = legJointR1.children[0]
-    legJointR3 = legJointR2.children[0]
-    legJointR5 = legJointR3.children[0]
-
-    // Get skinnin' data YEE HAW
-    // armJointL1 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_1');
-    // armJointL2 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_2');
-    // armJointL3 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_3');
-    // armJointR1 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_1');
-    // armJointR2 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_2');
-    // armJointR3 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_3');
-    // neckJoint1 = skeleton.bones.find(bone => bone.name === 'neck_joint_1');
-    // neckJoint2 = skeleton.bones.find(bone => bone.name === 'neck_joint_2');
-    // torsoJoint1 = skeleton.bones.find(bone => bone.name === 'torso_joint_1');
-    // torsoJoint2 = skeleton.bones.find(bone => bone.name === 'torso_joint_2');
-    // torsoJoint3 = skeleton.bones.find(bone => bone.name === 'torso_joint_3');
-    // legJointL1 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_1');
-    // legJointL2 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_2');
-    // legJointL3 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_3');
-    // legJointL5 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_5');
-    // legJointR1 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_1');
-    // legJointR2 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_2');
-    // legJointR3 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_3');
-    // legJointR5 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_5');
-
-    // create array of joints to iterate over while animating
-    joints = [
-      armJointL1,
-      armJointL2,
-      armJointL3,
-      armJointR1,
-      armJointR2,
-      armJointR3,
-      neckJoint1,
-      neckJoint2,
-      torsoJoint1,
-      torsoJoint2,
-      torsoJoint3,
-      legJointL1,
-      legJointL2,
-      legJointL3,
-      legJointL5,
-      legJointR1,
-      legJointR2,
-      legJointR3,
-      legJointR5
-    ];
-
-    initialStates = {};
-    for (let joint of joints) {
-      initialStates[joint.id] = [joint.position.clone(), joint.quaternion.clone(), joint.scale.clone()];
-    }
-  });
-
-}
-
-const landmarkArray = [
-  'NOSE',
-  'LEFT_EYE_INNER',
-  'LEFT_EYE',
-  'LEFT_EYE_OUTER',
-  'RIGHT_EYE_INNER',
-  'RIGHT_EYE',
-  'RIGHT_EYE_OUTER',
-  'LEFT_EAR',
-  'RIGHT_EAR',
-  'MOUTH_LEFT',
-  'MOUTH_RIGHT',
-  'LEFT_SHOULDER',
-  'RIGHT_SHOULDER',
-  'LEFT_ELBOW',
-  'RIGHT_ELBOW',
-  'LEFT_WRIST',
-  'RIGHT_WRIST',
-  'LEFT_PINKY',
-  'RIGHT_PINKY',
-  'LEFT_INDEX',
-  'RIGHT_INDEX',
-  'LEFT_THUMB',
-  'RIGHT_THUMB',
-  'LEFT_HIP',
-  'RIGHT_HIP',
-  'LEFT_KNEE',
-  'RIGHT_KNEE',
-  'LEFT_ANKLE',
-  'RIGHT_ANKLE',
-  'LEFT_HEEL',
-  'RIGHT_HEEL',
-  'LEFT_FOOT_INDEX',
-  'RIGHT_FOOT_INDEX'
-];
-
-function subtractVectors(vec1, vec2) {
-  return {
-      x: vec1.x - vec2.x,
-      y: vec1.y - vec2.y,
-      z: vec1.z - vec2.z,
-  };
-}
-
-const offset_directions = {
-  'LEFT_HIP': new THREE.Vector3(0, -1, 0),
-  'LEFT_KNEE': new THREE.Vector3(-1, 0, 0),
-  'LEFT_ANKLE': new THREE.Vector3(-1, 0, 0),
-
-  'RIGHT_HIP': new THREE.Vector3(0, -1, 0),
-  'RIGHT_KNEE': new THREE.Vector3(1, 0, 0),
-  'RIGHT_ANKLE': new THREE.Vector3(1, 0, 0),
-
-  'NECK': new THREE.Vector3(0, 1, 0),
-
-  'LEFT_SHOULDER': new THREE.Vector3(0, -1, 0),
-  'LEFT_ELBOW': new THREE.Vector3(0, -1, 0),
-  'LEFT_WRIST': new THREE.Vector3(0, -1, 0),
-
-  'RIGHT_SHOULDER': new THREE.Vector3(0, 1, 0),
-  'RIGHT_ELBOW': new THREE.Vector3(0, 1, 0),
-  'RIGHT_WRIST': new THREE.Vector3(0, 1, 0),
-
-  'TORSO': new THREE.Vector3(1, 0, 0),
-  'TORSO1': new THREE.Vector3(0, -1, 0),
-  'TORSO3': new THREE.Vector3(0, -1, 0),
-};
-function vectorLength(vec) {
-  return Math.sqrt(vec.x ** 2 + vec.y ** 2 + vec.z ** 2);
-}
-
-function normalizeVector2(vec) {
-    const length = vectorLength(vec);
-    return {
-        x: vec.x / length,
-        y: vec.y / length,
-        z: vec.z / length,
-    };
-}
-function getMidpoint(point1, point2) {
-  return {
-    x: (point1.x + point2.x) / 2,
-    y: (point1.y + point2.y) / 2,
-    z: (point1.z + point2.z) / 2,
-  };
-}
-
-function vectorRotation(vector1, vector2, offsetDirection) {
-  const difference = subtractVectors(vector2, vector1);
-  const direction = normalizeVector2(difference);
-  return direction;
-}
-
-function calcJoints(keypoints) {
-  let hipPoint = getMidpoint(keypoints.LEFT_HIP, keypoints.RIGHT_HIP)
-  worldPosition = hipPoint;
-  let neckpoint = getMidpoint(keypoints.LEFT_SHOULDER, keypoints.RIGHT_SHOULDER)
-  const chestPoint = getMidpoint(hipPoint, neckpoint)
-
-  // left arm
-  const armJointL1 = vectorRotation(keypoints.LEFT_SHOULDER, keypoints.LEFT_ELBOW, offset_directions.LEFT_SHOULDER);
-  const armJointL2 = vectorRotation(keypoints.LEFT_ELBOW, keypoints.LEFT_WRIST, offset_directions.LEFT_ELBOW);
-  const armJointL3 = vectorRotation(keypoints.LEFT_WRIST, keypoints.LEFT_PINKY, offset_directions.LEFT_WRIST);
-
-  // right arm
-  const armJointR1 = vectorRotation(keypoints.RIGHT_SHOULDER, keypoints.RIGHT_ELBOW, offset_directions.RIGHT_SHOULDER);
-  const armJointR2 = vectorRotation(keypoints.RIGHT_ELBOW, keypoints.RIGHT_WRIST, offset_directions.RIGHT_ELBOW);
-  const armJointR3 = vectorRotation(keypoints.RIGHT_WRIST, keypoints.RIGHT_PINKY, offset_directions.RIGHT_WRIST);
-
-  // neck
-  const foreheadPoint = getMidpoint(keypoints.NOSE, keypoints.RIGHT_EYE_INNER)
-  const neckJoint1 = vectorRotation(chestPoint, foreheadPoint, offset_directions.NECK);
-  const neckJoint2 = foreheadPoint
-
-  // torso
-  const torsoJoint1 = vectorRotation(hipPoint, neckpoint, offset_directions.TORSO);
-  const torsoJoint2 = torsoJoint1
-  const torsoJoint3 = torsoJoint1
-
-  // left leg
-  const legJointL1 = vectorRotation(keypoints.LEFT_HIP, keypoints.LEFT_KNEE, offset_directions.LEFT_HIP);
-  const legJointL2 = vectorRotation(keypoints.LEFT_KNEE, keypoints.LEFT_ANKLE, offset_directions.LEFT_KNEE);
-  const legJointL3 = vectorRotation(keypoints.LEFT_ANKLE, keypoints.LEFT_HEEL, offset_directions.LEFT_ANKLE);
-  const legJointL5 = vectorRotation(keypoints.LEFT_FOOT_INDEX, keypoints.LEFT_HEEL, offset_directions.LEFT_ANKLE);
-
-  // right leg
-  const legJointR1 = vectorRotation(keypoints.RIGHT_HIP, keypoints.RIGHT_KNEE, offset_directions.RIGHT_HIP);
-  const legJointR2 = vectorRotation(keypoints.RIGHT_KNEE, keypoints.RIGHT_ANKLE, offset_directions.RIGHT_KNEE);
-  const legJointR3 = vectorRotation(keypoints.RIGHT_ANKLE, keypoints.RIGHT_HEEL, offset_directions.RIGHT_ANKLE);
-  const legJointR5 = vectorRotation(keypoints.RIGHT_FOOT_INDEX, keypoints.RIGHT_HEEL, offset_directions.RIGHT_ANKLE);
-
-  // Package joint data to be sent to the renderer
-  const trackedPose = {
-    arm_joint_L_1: armJointL1,
-    arm_joint_L_2: armJointL2,
-    arm_joint_L_3: armJointL3,
-    arm_joint_R_1: armJointR1,
-    arm_joint_R_2: armJointR2,
-    arm_joint_R_3: armJointR3,
-    neck_joint_1: neckJoint1,
-    neck_joint_2: neckJoint2,
-    torso_joint_1: torsoJoint1,
-    torso_joint_2: torsoJoint2,
-    torso_joint_3: torsoJoint3,
-    leg_joint_L_1: legJointL1,
-    leg_joint_L_2: legJointL2,
-    leg_joint_L_3: legJointL3,
-    leg_joint_R_1: legJointR1,
-    leg_joint_R_2: legJointR2,
-    leg_joint_R_3: legJointR3,
-    leg_joint_L_5: legJointL5,
-    leg_joint_R_5: legJointR5,
-  };
-
-  return trackedPose;
-}
-
-function getKeyPointAnimationMatrices(keypoints) {
-  landmarkDict = {}
-  if (keypoints && keypoints.worldLandmarks && keypoints.worldLandmarks[0]) {
-    landmarkArray.forEach((landmark, index) => {
-      landmarkDict[landmark] = keypoints.worldLandmarks[0][index]
-    });
-    // Get direction vectors for bones
-    axisAngles = calcJoints(landmarkDict);
-  }
-}
-
+/**
+ * Log and return the average of the last LOG_MAX frames
+ */
 let log = []
 let logCounter = 0
+let currentAverage = null
+const LOG_MAX = 10;
 
 function getAverages(log) {
   let numLogs = log.length
@@ -417,9 +100,9 @@ function getAverages(log) {
   }
 }
 
-let currentAverage = null
-
-// Get pose landmarks from webcam
+/**
+ * Get pose landmarks from webcam
+ */
 async function predictWebcam() {
   canvasElement.style.height = videoHeight;
   video.style.height = videoHeight;
@@ -434,6 +117,7 @@ async function predictWebcam() {
   if (lastVideoTime !== video.currentTime) {
     lastVideoTime = video.currentTime;
     poseLandmarker.detectForVideo(video, startTimeMs, (result) => {
+      // Draw the pose landmarks on the canvas
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       for (const landmark of result.landmarks) {
@@ -444,15 +128,16 @@ async function predictWebcam() {
         });
         drawingUtils.drawConnectors(landmark, PoseLandmarker.POSE_CONNECTIONS);
       }
-      // SMOOTH MCGROOVE
+      // SMOOTH MCGROOVE (average the last LOG_MAX frames)
       log[logCounter] = result
       if (!currentAverage) currentAverage = result
-      if (logCounter == 10) {
+      if (logCounter == LOG_MAX) {
         logCounter = 0
       }
-      currentAverage = getAverages(log)
-      getKeyPointAnimationMatrices(currentAverage)
       logCounter++;
+      currentAverage = getAverages(log)
+      // update the directionVectors with the current average poselandmarker data
+      directionVectors = getDirectionVectors(currentAverage)
       canvasCtx.restore();
     });
   }
@@ -463,68 +148,216 @@ async function predictWebcam() {
   }
 }
 
-// Animmamtttateatmatametametmamtmeta
+/**
+ * Animmamtttateatmatametametmamtmeta loop
+ */
 function animate() {
+  let worldPosition = directionVectors.hip_point;
 
   if (mesh && worldPosition) {
-    let parent = mesh.parent
+    // Position the model at the center of the screen
     mesh.position.x = ((worldPosition.x + 0.4) * 2.0)
     mesh.position.y = ((worldPosition.y + 0.4) * 2.0)
     mesh.position.z = ((worldPosition.z + 0.4) * 2.0)
+    // Scale model up to be visible
     mesh.scale.x = 12.0
     mesh.scale.y = 12.0
     mesh.scale.z = 12.0
+    // Recursively update the global transforms of parents and children
     mesh.updateWorldMatrix(true, true)
+    // Reattach the model to the scene to apply new global transforms
     scene.attach(mesh)
   }
-  if (trackedPose) {
-    for (let joint of joints) {
-      joint.position.copy(initialStates[joint.id][0]);
-      joint.quaternion.copy(initialStates[joint.id][1]);
-      joint.scale.copy(initialStates[joint.id][2]);
 
-      const jointName = joint.name;
+  for (let joint of joints) {
+    // Reset each joint to its initial state before applying new transformations
+    joint.position.copy(initialStates[joint.id][0]);
+    joint.quaternion.copy(initialStates[joint.id][1]);
+    joint.scale.copy(initialStates[joint.id][2]);
 
-      const newAxis = axisAngles[jointName];
-      if (newAxis == null) {
-        continue;
-      }
-      let parent = joint.parent;
-      scene.attach(joint);
-      let currentQuat = joint.quaternion.clone();
+    const jointName = joint.name;
 
-      let worldRotation = joint.quaternion.clone();
-      let refVec = new THREE.Vector3(0, 1, 0);
-      refVec.applyQuaternion(worldRotation);
-      let newQuat = new THREE.Quaternion().setFromUnitVectors(refVec, new THREE.Vector3(newAxis.x , - newAxis.y , - newAxis.z));
-      // post-multiply the previous quaternion
-      newQuat.multiply(currentQuat);
-      joint.quaternion.copy(newQuat);
-      parent.attach(joint);
+    const vTo = directionVectors[jointName];
+    if (vTo == null) {
+      continue;
     }
-    if (torsoJoint1)
-    {
-      if (worldPosition) {
-        let parent = torsoJoint1.parent;
-        scene.attach(torsoJoint1);
-        console.log(worldPosition)
-        const newCenter = new THREE.Vector3(worldPosition[0], worldPosition[1], worldPosition[2])
-        torsoJoint1.updateMatrixWorld();
-        parent.attach(torsoJoint1); // reattach to original parent
+    // Detach joint from parent and add to scene
+    let parent = joint.parent;
+    scene.attach(joint);
 
-        for (let joint of joints) {
-          let parent = joint.parent;
-          scene.attach(joint); // detach from parent and add to scene
-          joint.updateWorldMatrix();
-          parent.attach(joint); // reattach to original parent
-        }
-      }
-    }
+    // Save current world rotation to apply new rotation to later
+    let currentQuat = joint.quaternion.clone();
+    // Create a copy of the joint's current rotation
+    let worldRotation = joint.quaternion.clone();
+    // The "from" vector is the default "up" direction
+    let vFrom = new THREE.Vector3(0, 1, 0);
+    // Transform the "from" vector to the joint's current world rotation
+    // to get the actual initial direction vector
+    vFrom.applyQuaternion(worldRotation);
+    // Compute a quaternion from the new direction vector
+    // setFromUnitVectors sets the quaternion to the rotation required to rotate direction vector vFrom to direction vector vTo
+    let newQuat = new THREE.Quaternion().setFromUnitVectors(vFrom, new THREE.Vector3(vTo.x , - vTo.y , - vTo.z));
+    // post-multiply the previous quaternion with the new quaternion
+    newQuat.multiply(currentQuat);
+    joint.quaternion.copy(newQuat); // apply the new quaternion to the joint
+    // Reattach joint to parent. This also updates any children of the joint
+    parent.attach(joint);
   }
-  requestAnimationFrame(animate);
+  requestAnimationFrame(animate); // calls the animate function again
 
-  renderer.render(scene, camera);
+  renderer.render(scene, camera); // render the scene in WebGL
 };
+
+
+/**
+ * Initialize the scene, camera, and renderer
+ * Load the 3D model and set up the skeleton's initial state
+ */
+function init() {
+  if (hasGetUserMedia()) {
+    if (webcamRunning === true) {
+      webcamRunning = false;
+    } else {
+      webcamRunning = true;
+    }
+
+    // getUsermedia parameters.
+    const constraints = {
+      video: true
+    };
+
+    // Activate the webcam stream.
+    navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+      video.srcObject = stream;
+      video.addEventListener("loadeddata", predictWebcam);
+    });
+  }
+
+  createPoseLandmarker();
+
+  // initlize scene and camera
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+  var axesHelper = new THREE.AxesHelper( 10 );
+  scene.add( axesHelper );
+
+  // Let there be light
+  const light = new THREE.AmbientLight( 0xAAAAAA ); // white light
+  scene.add( light );
+
+  // Directional light
+  const directionalLight = new THREE.DirectionalLight( 0xf00fff, 1.0 );
+  directionalLight.position.set( 0, 1, 0 );
+  scene.add( directionalLight );
+
+  // Tip toe through the window with meeeeeeee
+  renderer = new THREE.WebGLRenderer();
+  // renderer.setClearColor(new THREE.Color(0xcccccc));
+  renderer.setPixelRatio( window.devicePixelRatio );
+  renderer.setSize(window.innerWidth * 0.75, window.innerHeight * 0.75);
+  document.getElementById('webgl').appendChild(renderer.domElement);
+
+  // We movin' in this scene
+  let controls = new OrbitControls( camera, renderer.domElement );
+  controls.target.set(0, 0, 0);
+
+  // Look at my center of origin when I'm speaking to you
+  camera.position.set(0, 5, 15);
+  camera.lookAt(0, 10, 0);
+
+  let manager = new THREE.LoadingManager();
+  let loader = new GLTFLoader(manager);
+
+  // Load them bad boy GLTFs
+  loader.load("RiggedFigureInBlender.gltf",function(gltf) {
+    // A new model has joined the party
+    mesh = gltf.scene;
+    mesh.children[0].material = new THREE.MeshLambertMaterial();
+    scene.add(mesh);
+
+    // render the model
+    renderer.render(scene, camera);
+
+    /** Get skinnin' data YEE HAW (for collada files) */
+    // let skeleton = new THREE.SkeletonHelper( armature );
+    // skeleton.visible = true;
+    // scene.add( skeleton );
+    // armJointL1 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_1');
+    // armJointL2 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_2');
+    // armJointL3 = skeleton.bones.find(bone => bone.name === 'arm_joint_L_3');
+    // armJointR1 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_1');
+    // armJointR2 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_2');
+    // armJointR3 = skeleton.bones.find(bone => bone.name === 'arm_joint_R_3');
+    // neckJoint1 = skeleton.bones.find(bone => bone.name === 'neck_joint_1');
+    // neckJoint2 = skeleton.bones.find(bone => bone.name === 'neck_joint_2');
+    // torsoJoint1 = skeleton.bones.find(bone => bone.name === 'torso_joint_1');
+    // torsoJoint2 = skeleton.bones.find(bone => bone.name === 'torso_joint_2');
+    // torsoJoint3 = skeleton.bones.find(bone => bone.name === 'torso_joint_3');
+    // legJointL1 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_1');
+    // legJointL2 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_2');
+    // legJointL3 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_3');
+    // legJointL5 = skeleton.bones.find(bone => bone.name === 'leg_joint_L_5');
+    // legJointR1 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_1');
+    // legJointR2 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_2');
+    // legJointR3 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_3');
+    // legJointR5 = skeleton.bones.find(bone => bone.name === 'leg_joint_R_5');
+
+    /** Find the joints in GLTF that we can control using pose landmarker data */
+
+    let armature = mesh.children[0].children[0];
+    let torsoJoint1 = armature.children[1]
+    let torsoJoint2 = torsoJoint1.children[0]
+    let torsoJoint3 = torsoJoint2.children[0]
+    let armJointL1 = torsoJoint3.children[1]
+    let armJointL2 = armJointL1.children[0]
+    let armJointL3 = armJointL2.children[0]
+    let armJointR1 = torsoJoint3.children[2]
+    let armJointR2 = armJointR1.children[0]
+    let armJointR3 = armJointR2.children[0]
+    let neckJoint1 = torsoJoint3.children[0]
+    let neckJoint2 = neckJoint1.children[0]
+    let legJointL1 = torsoJoint1.children[1]
+    let legJointL2 = legJointL1.children[0]
+    let legJointL3 = legJointL2.children[0]
+    let legJointL5 = legJointL3.children[0]
+    let legJointR1 = torsoJoint1.children[2]
+    let legJointR2 = legJointR1.children[0]
+    let legJointR3 = legJointR2.children[0]
+    let legJointR5 = legJointR3.children[0]
+
+    // create array of joints to iterate over while animating
+    joints = [
+      armJointL1,
+      armJointL2,
+      armJointL3,
+      armJointR1,
+      armJointR2,
+      armJointR3,
+      neckJoint1,
+      neckJoint2,
+      torsoJoint1,
+      torsoJoint2,
+      torsoJoint3,
+      legJointL1,
+      legJointL2,
+      legJointL3,
+      legJointL5,
+      legJointR1,
+      legJointR2,
+      legJointR3,
+      legJointR5
+    ];
+
+    // store the initial state of each joint so we can reset the joints to their
+    // original positions, orientations, and scales before applying new transformations
+    initialStates = {};
+    for (let joint of joints) {
+      initialStates[joint.id] = [joint.position.clone(), joint.quaternion.clone(), joint.scale.clone()];
+    }
+  });
+
+}
 
 init();
 animate();
