@@ -5,11 +5,18 @@
         "serve": "vite preview"
     },
     "dependencies": {
-        "@mediapipe/tasks-vision": "^0.10.8",
-        "mathjs": "^12.1.0",
-        "three": "^0.159.0"
+        "@mediapipe/tasks-vision": "^1.1.1",
+        "mathjs": "^15.2.0",
+        "three": "^0.186.1"
     },
     "devDependencies": {
-        "vite": "^5.0.2"
+        "vite": "^8.3.5"
+    },
+    "devEngines": {
+        "runtime": {
+            "name": "node",
+            "version": "26.12.1",
+            "onFail": "download"
+        }
     }
 }
